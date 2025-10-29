@@ -1,34 +1,63 @@
 ---
-import Base from "../../../src/layouts/Base.astro";
-import fs from 'node:fs';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const root = process.cwd();
-const indexPath = path.join(root, 'public', 'data', 'indicators', 'index.json');
+type Item = { slug: string; name?: string; type?: string; summary?: string; since?: string };
 
-let items = [];
-try {
-  const raw = fs.readFileSync(indexPath, 'utf-8');
-  const json = JSON.parse(raw);
-  items = Array.isArray(json.items) ? json.items : [];
-} catch {
-  items = [];
+async function readIndex(): Promise<Item[]> {
+  try {
+    const p = path.join(process.cwd(), 'public', 'data', 'indicators', 'index.json');
+    const raw = await fs.readFile(p, 'utf-8');
+    const j = JSON.parse(raw);
+    return Array.isArray(j?.items) ? j.items : [];
+  } catch {
+    return [];
+  }
 }
----
-<Base title="Indicators">
-  <div class="content-header"><div class="container-fluid">
-    <h1 class="m-0">Indicators</h1>
-    <p class="text-muted">Server-rendered hub (no client fetch).</p>
-  </div></div>
 
-  <ul class="list-group">
-    {items.length === 0
-      ? <li class="list-group-item text-muted">No indicators available. Ensure public/data/indicators/index.json exists.</li>
-      : items.map((slug) => (
-          <li class="list-group-item">
-            <a href={`/indicators/${slug}/`}>{slug}</a>
-          </li>
-        ))
-    }
-  </ul>
-</Base>
+const items = await readIndex();
+---
+
+<section class="content-header">
+  <div class="container-fluid">
+    <div class="row mb-2">
+      <div class="col-sm-6">
+        <h1>Indicators</h1>
+      </div>
+      <div class="col-sm-6">
+        <ol class="breadcrumb float-sm-right">
+          <li class="breadcrumb-item"><a href="/">Home</a></li>
+          <li class="breadcrumb-item active">Indicators</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="content">
+  <div class="container-fluid">
+    {items.length === 0 ? (
+      <div class="alert alert-info">No indicators found at build time.</div>
+    ) : (
+      <div class="row">
+        {items.map((it) => (
+          <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card h-100">
+              <div class="card-body">
+                <a href={`/indicators/${it.slug}/`} class="stretched-link">
+                  {it.name ?? it.slug}{it.type ? ` — ${it.type}` : ''}
+                </a>
+                {it.summary && <p class="mb-0 mt-2 text-muted">{it.summary}</p>}
+              </div>
+              {it.since && (
+                <div class="card-footer text-muted small">
+                  Since {it.since}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</section>
