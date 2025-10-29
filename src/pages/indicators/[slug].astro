@@ -1,0 +1,42 @@
+---
+import Base from "../../../src/layouts/Base.astro";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const repoRoot = path.resolve(__dirname, "../../../");
+const indRoot = path.join(repoRoot, "public/data/indicators");
+
+const { slug } = Astro.params;
+const meta = JSON.parse(fs.readFileSync(path.join(indRoot, slug, "meta.json"), "utf-8"));
+const series = JSON.parse(fs.readFileSync(path.join(indRoot, slug, "series.json"), "utf-8"));
+const seriesME = JSON.parse(fs.readFileSync(path.join(indRoot, slug, "series_me.json"), "utf-8"));
+---
+<Base title={meta.title}>
+  <div class="content-header"><div class="container-fluid">
+    <h1 class="m-0">{meta.title}</h1>
+    <p class="text-muted">{meta.description}</p>
+  </div></div>
+
+  <div class="card">
+    <div class="card-body">
+      <p class="mb-2"><strong>{meta.a}</strong> vs <strong>{meta.b}</strong></p>
+      <div id="chart" class="w-100" style="height: 360px;"></div>
+
+      <!-- Inline data for offline / progressive enhancement -->
+      <script type="application/json" id="series-json">{JSON.stringify(series)}</script>
+      <script type="application/json" id="series-me-json">{JSON.stringify(seriesME)}</script>
+      <script>
+        // Optional: client-only chart init reading inline JSON; safe if JS blocked
+        (function(){
+          const s = document.getElementById('series-json');
+          if(!s) return;
+          const data = JSON.parse(s.textContent||'{}').series || [];
+          // ... initialize your chart lib here if needed ...
+        })();
+      </script>
+    </div>
+  </div>
+</Base>

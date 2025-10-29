@@ -1,0 +1,10 @@
+{
+  "items": [
+    {
+      "slug": "sp500_equal",
+      "title": "S&P 500 Equal Weight",
+      "ticker": "RSP",
+      "description": "Simple placeholder portfolio tracking RSP."
+    }
+  ]
+}

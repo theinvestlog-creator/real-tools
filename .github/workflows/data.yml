@@ -1,0 +1,47 @@
+name: Build data (nightly + manual)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "7 2 * * *" # daily 02:07 UTC
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend deps
+        run: pip install -r requirements.txt
+
+      - name: Build data
+        run: |
+          python -m backend.cli build-all \
+            --ind-reg data/indicators/registry.json \
+            --port-reg data/portfolios/registry.json
+
+      - name: List outputs
+        run: |
+          echo "::group::public/data"
+          find public/data -type f -maxdepth 3 -printf "%p\t%k KB\n" | sort || true
+          echo "::endgroup::"
+
+      - name: Commit & push data artifacts
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add -f public/data data/store || true
+          if git diff --cached --quiet; then
+            echo "No data changes."
+          else
+            git commit -m "chore(data): nightly data refresh"
+            git push
+          fi
