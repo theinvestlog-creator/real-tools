@@ -1,0 +1,35 @@
+---
+import Base from "../../../src/layouts/Base.astro";
+---
+<Base title="Calculators">
+  <div class="content-header"><div class="container-fluid">
+    <h1 class="m-0">Calculators</h1>
+  </div></div>
+
+  <div class="row">
+    <!-- Four info-boxes, 1 link + 3 coming soon -->
+    <div class="col-12 col-sm-6 col-md-3">
+      <div class="info-box">
+        <span class="info-box-icon text-bg-primary shadow-sm"><i class="fas fa-arrows-left-right-to-line"></i></span>
+        <div class="info-box-content">
+          <span class="info-box-text"><a href="/calculators/bid-ask/">Bid-Ask Calculator</a></span>
+          <span class="info-box-number">ready</span>
+        </div>
+      </div>
+    </div>
+    {Array.from({length:3}).map((_,i)=>(
+      <div class="col-12 col-sm-6 col-md-3">
+        <div class="info-box">
+          <span class="info-box-icon text-bg-secondary shadow-sm"><i class="fas fa-hourglass-half"></i></span>
+          <div class="info-box-content">
+            <span class="info-box-text">Coming soon</span>
+            <span class="info-box-number">…</span>
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+</Base>
+
+
+(The actual /calculators/bid-ask/ page can be added later; this is just the hub placeholder.)

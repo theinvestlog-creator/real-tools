@@ -1,0 +1,25 @@
+{
+  "items": [
+    {
+      "slug": "us_vs_exus",
+      "title": "US vs ex-US",
+      "a": "SPY",
+      "b": "ACWX",
+      "description": "SPY relative to ACWX (ex-US developed + EM)."
+    },
+    {
+      "slug": "xli_vs_xlu",
+      "title": "Industrials vs Utilities",
+      "a": "XLI",
+      "b": "XLU",
+      "description": "Cyclical vs defensive rotation gauge."
+    },
+    {
+      "slug": "rsp_vs_spy",
+      "title": "S&P 500 Equal Weight vs Cap Weight",
+      "a": "RSP",
+      "b": "SPY",
+      "description": "Breadth vs mega-caps."
+    }
+  ]
+}

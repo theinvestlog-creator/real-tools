@@ -1,0 +1,39 @@
+---
+import Base from "../../../src/layouts/Base.astro";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const repoRoot = path.resolve(__dirname, "../../../");
+const indRoot = path.join(repoRoot, "public/data/indicators");
+
+const idx = JSON.parse(fs.readFileSync(path.join(indRoot, "index.json"), "utf-8"));
+const items = idx.items.map((it) => {
+  const metaPath = path.join(indRoot, it.slug, "meta.json");
+  const meta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+  return { ...it, meta };
+});
+---
+<Base title="Indicators">
+  <div class="content-header"><div class="container-fluid">
+    <h1 class="m-0">Indicators</h1>
+    <p class="text-muted">Server-rendered hub (no client fetch).</p>
+  </div></div>
+
+  <div class="row">
+    {items.map(({slug, meta, url}) => (
+      <div class="col-12 col-sm-6 col-md-4">
+        <div class="small-box bg-light">
+          <div class="inner">
+            <h3 class="h5 mb-2">{meta.title}</h3>
+            <p class="text-muted">{meta.description}</p>
+          </div>
+          <div class="icon"><i class="fas fa-chart-line"></i></div>
+          <a href={url} class="small-box-footer">Open <i class="fas fa-arrow-circle-right"></i></a>
+        </div>
+      </div>
+    ))}
+  </div>
+</Base>

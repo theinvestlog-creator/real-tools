@@ -1,0 +1,16 @@
+:root { --ilg-gap: 1rem; }
+html, body { height: 100%; }
+.wrapper { min-height: 100vh; }
+.nav-sidebar, .nav-sidebar .nav { list-style: none; padding-left: 0; }
+.nav-sidebar .nav-link.active { background-color: rgba(255,255,255,.15); color: #fff; }
+.card { margin-bottom: var(--ilg-gap); }
+.content-header { margin-bottom: var(--ilg-gap); }
+
+/* Sidebar fallback if AdminLTE JS is blocked */
+.main-sidebar { position: fixed; top: 0; bottom: 0; left: 0; width: 250px; }
+.content-wrapper { margin-left: 250px; }
+@media (max-width: 991.98px) {
+  .main-sidebar { left: 0; width: 250px; transform: translateX(-250px); transition: transform .2s; }
+  .sidebar-open .main-sidebar { transform: translateX(0); }
+  .content-wrapper { margin-left: 0; }
+}
