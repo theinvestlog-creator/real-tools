@@ -1,20 +1,19 @@
 ---
 import Base from "../../../src/layouts/Base.astro";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import fs from 'node:fs';
+import path from 'node:path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, "../../../");
-const indRoot = path.join(repoRoot, "public/data/indicators");
+const root = process.cwd();
+const indexPath = path.join(root, 'public', 'data', 'indicators', 'index.json');
 
-const idx = JSON.parse(fs.readFileSync(path.join(indRoot, "index.json"), "utf-8"));
-const items = idx.items.map((it) => {
-  const metaPath = path.join(indRoot, it.slug, "meta.json");
-  const meta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
-  return { ...it, meta };
-});
+let items = [];
+try {
+  const raw = fs.readFileSync(indexPath, 'utf-8');
+  const json = JSON.parse(raw);
+  items = Array.isArray(json.items) ? json.items : [];
+} catch {
+  items = [];
+}
 ---
 <Base title="Indicators">
   <div class="content-header"><div class="container-fluid">
@@ -22,18 +21,14 @@ const items = idx.items.map((it) => {
     <p class="text-muted">Server-rendered hub (no client fetch).</p>
   </div></div>
 
-  <div class="row">
-    {items.map(({slug, meta, url}) => (
-      <div class="col-12 col-sm-6 col-md-4">
-        <div class="small-box bg-light">
-          <div class="inner">
-            <h3 class="h5 mb-2">{meta.title}</h3>
-            <p class="text-muted">{meta.description}</p>
-          </div>
-          <div class="icon"><i class="fas fa-chart-line"></i></div>
-          <a href={url} class="small-box-footer">Open <i class="fas fa-arrow-circle-right"></i></a>
-        </div>
-      </div>
-    ))}
-  </div>
+  <ul class="list-group">
+    {items.length === 0
+      ? <li class="list-group-item text-muted">No indicators available. Ensure public/data/indicators/index.json exists.</li>
+      : items.map((slug) => (
+          <li class="list-group-item">
+            <a href={`/indicators/${slug}/`}>{slug}</a>
+          </li>
+        ))
+    }
+  </ul>
 </Base>
