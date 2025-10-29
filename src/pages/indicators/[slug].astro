@@ -110,7 +110,7 @@ const pageTitle = meta?.title ?? 'Indicator';
             No series data available at build time for <strong>{meta?.slug}</strong>.
           </div>
         ) : (
-          <>
+          <Fragment>
             <!-- Server-render a tiny summary; charts (if any) can enhance on client -->
             {meta?.formula && (
               <p class="text-muted"><em>Formula:</em> {meta.formula}</p>
@@ -123,10 +123,16 @@ const pageTitle = meta?.title ?? 'Indicator';
             <p class="mb-0">
               Observations: <strong>{(me?.kpis?.obs ?? daily?.kpis?.obs) ?? series.series.length}</strong>
               {typeof (me?.kpis?.cagr_all ?? daily?.kpis?.cagr_all) === 'number' && (
-                <> · CAGR: <strong>{((me?.kpis?.cagr_all ?? daily?.kpis?.cagr_all) * 100).toFixed(2)}%</strong></>
+                <span>
+                  {' '}
+                  · CAGR: <strong>{((me?.kpis?.cagr_all ?? daily?.kpis?.cagr_all) * 100).toFixed(2)}%</strong>
+                </span>
               )}
               {typeof (me?.kpis?.maxdd_all ?? daily?.kpis?.maxdd_all) === 'number' && (
-                <> · Max DD: <strong>{(((me?.kpis?.maxdd_all ?? daily?.kpis?.maxdd_all)) * 100).toFixed(1)}%</strong></>
+                <span>
+                  {' '}
+                  · Max DD: <strong>{(((me?.kpis?.maxdd_all ?? daily?.kpis?.maxdd_all)) * 100).toFixed(1)}%</strong>
+                </span>
               )}
             </p>
 
@@ -134,7 +140,7 @@ const pageTitle = meta?.title ?? 'Indicator';
             <div id="chart-container" class="mt-3">
               <!-- Progressive enhancement only; no data fetch needed because data is already embedded via props -->
             </div>
-          </>
+          </Fragment>
         )}
       </div>
     </div>
