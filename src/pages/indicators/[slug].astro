@@ -1,42 +1,164 @@
 ---
-import Base from "../../../src/layouts/Base.astro";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+/**
+ * SSG-only dynamic indicator page.
+ * Builds from precomputed JSON under public/data/indicators/<slug>/...
+ * No client fetches are used to assemble page content.
+ */
+import fs from 'node:fs';
+import path from 'node:path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, "../../../");
-const indRoot = path.join(repoRoot, "public/data/indicators");
+// Required for static builds on Cloudflare Pages.
+export async function getStaticPaths() {
+  const root = process.cwd();
+  const indexPath = path.join(root, 'public', 'data', 'indicators', 'index.json');
 
+  try {
+    const raw = fs.readFileSync(indexPath, 'utf-8');
+    const index = JSON.parse(raw);
+    const items = Array.isArray(index.items) ? index.items : [];
+    const paths = items
+      .filter(s => typeof s === 'string' && s.length > 0)
+      .map(slug => ({ params: { slug } }));
+    return paths;
+  } catch {
+    // Build should still succeed (just no indicator detail pages)
+    return [];
+  }
+}
+
+// AdminLTE v4 canonical layout: header, sidebar, content wrapper, footer.
+// Use your existing shared layout if you have one; if not, keep markup canonical.
 const { slug } = Astro.params;
-const meta = JSON.parse(fs.readFileSync(path.join(indRoot, slug, "meta.json"), "utf-8"));
-const series = JSON.parse(fs.readFileSync(path.join(indRoot, slug, "series.json"), "utf-8"));
-const seriesME = JSON.parse(fs.readFileSync(path.join(indRoot, slug, "series_me.json"), "utf-8"));
+
+// Resolve files for this slug
+const root = process.cwd();
+const baseDir = path.join(root, 'public', 'data', 'indicators', slug);
+
+// Meta + series
+let meta = null;
+let series = null;
+let seriesME = null;
+let hasData = false;
+
+try {
+  meta = JSON.parse(fs.readFileSync(path.join(baseDir, 'meta.json'), 'utf-8'));
+  series = JSON.parse(fs.readFileSync(path.join(baseDir, 'series.json'), 'utf-8'));
+  // Month-end series is optional but recommended
+  const mePath = path.join(baseDir, 'series_me.json');
+  if (fs.existsSync(mePath)) {
+    seriesME = JSON.parse(fs.readFileSync(mePath, 'utf-8'));
+  }
+  hasData = true;
+} catch { /* render empty state below */ }
+
+// Minimal helpers
+function safe(t, d = '') { return (t ?? d); }
 ---
-<Base title={meta.title}>
-  <div class="content-header"><div class="container-fluid">
-    <h1 class="m-0">{meta.title}</h1>
-    <p class="text-muted">{meta.description}</p>
-  </div></div>
 
-  <div class="card">
-    <div class="card-body">
-      <p class="mb-2"><strong>{meta.a}</strong> vs <strong>{meta.b}</strong></p>
-      <div id="chart" class="w-100" style="height: 360px;"></div>
+<!-- AdminLTE v4 starter layout (canonical, minimal). Copy upstream classes verbatim. -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{meta?.title ?? `Indicator: ${slug}`}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- AdminLTE v4 RC3 & Bootstrap 5.3.3 & Font Awesome -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-rc3/dist/css/adminlte.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css">
+  </head>
+  <body class="layout-fixed sidebar-mini">
+    <div class="wrapper">
+      <!-- Navbar -->
+      <nav class="main-header navbar navbar-expand navbar-white navbar-light">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
+          </li>
+          <li class="nav-item d-none d-sm-inline-block">
+            <a href="/" class="nav-link">Home</a>
+          </li>
+          <li class="nav-item d-none d-sm-inline-block">
+            <a href="/indicators/" class="nav-link">Indicators</a>
+          </li>
+        </ul>
+      </nav>
 
-      <!-- Inline data for offline / progressive enhancement -->
-      <script type="application/json" id="series-json">{JSON.stringify(series)}</script>
-      <script type="application/json" id="series-me-json">{JSON.stringify(seriesME)}</script>
-      <script>
-        // Optional: client-only chart init reading inline JSON; safe if JS blocked
-        (function(){
-          const s = document.getElementById('series-json');
-          if(!s) return;
-          const data = JSON.parse(s.textContent||'{}').series || [];
-          // ... initialize your chart lib here if needed ...
-        })();
-      </script>
+      <!-- Main Sidebar Container -->
+      <aside class="main-sidebar sidebar-dark-primary elevation-4">
+        <a href="/" class="brand-link">
+          <span class="brand-text font-weight-light">Investlog Tools</span>
+        </a>
+        <div class="sidebar">
+          <nav class="mt-2">
+            <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
+              <li class="nav-item"><a href="/indicators/" class="nav-link active"><i class="nav-icon fas fa-chart-line"></i><p>Indicators</p></a></li>
+              <li class="nav-item"><a href="/calculators/" class="nav-link"><i class="nav-icon fas fa-calculator"></i><p>Calculators</p></a></li>
+            </ul>
+          </nav>
+        </div>
+      </aside>
+
+      <!-- Content Wrapper. Contains page content -->
+      <div class="content-wrapper">
+        <!-- Content Header (Page header) -->
+        <section class="content-header">
+          <div class="container-fluid">
+            <div class="row mb-2">
+              <div class="col-sm-6">
+                <h1>{meta?.title ?? `Indicator: ${slug}`}</h1>
+              </div>
+              <div class="col-sm-6">
+                <ol class="breadcrumb float-sm-end">
+                  <li class="breadcrumb-item"><a href="/">Home</a></li>
+                  <li class="breadcrumb-item"><a href="/indicators/">Indicators</a></li>
+                  <li class="breadcrumb-item active">{slug}</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Main content -->
+        <section class="content">
+          <div class="container-fluid">
+            {hasData ? (
+              <>
+                <div class="card">
+                  <div class="card-header">
+                    <h3 class="card-title">{safe(meta?.title, slug)}</h3>
+                  </div>
+                  <div class="card-body">
+                    <p class="text-muted">{safe(meta?.description, 'No description')}</p>
+                    <!-- Server-rendered KPIs from series. No browser fetch. -->
+                    <div class="row">
+                      <div class="col-md-3"><div class="info-box"><span class="info-box-icon"><i class="fas fa-percent"></i></span><div class="info-box-content"><span class="info-box-text">CAGR (all)</span><span class="info-box-number">{series?.kpis?.cagr_all ?? '—'}</span></div></div></div>
+                      <div class="col-md-3"><div class="info-box"><span class="info-box-icon"><i class="fas fa-arrows-down-to-people"></i></span><div class="info-box-content"><span class="info-box-text">Max DD (all)</span><span class="info-box-number">{series?.kpis?.maxdd_all ?? '—'}</span></div></div></div>
+                      <div class="col-md-3"><div class="info-box"><span class="info-box-icon"><i class="fas fa-calendar"></i></span><div class="info-box-content"><span class="info-box-text">Obs</span><span class="info-box-number">{series?.kpis?.obs ?? '—'}</span></div></div></div>
+                      <div class="col-md-3"><div class="info-box"><span class="info-box-icon"><i class="fas fa-clock"></i></span><div class="info-box-content"><span class="info-box-text">Last update</span><span class="info-box-number">{safe(meta?.last_update, '—')}</span></div></div></div>
+                    </div>
+                    <!-- Client-side chart can hydrate off the prebuilt JSON (progressive enhancement). -->
+                    <div id="chart" class="mt-3"></div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div class="alert alert-warning">Data for <strong>{slug}</strong> is not available. Ensure public/data/indicators/{slug}/(meta.json, series.json) exist.</div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      <!-- Footer -->
+      <footer class="main-footer">
+        <strong>Investlog Tools</strong>
+        <div class="float-end d-none d-sm-inline-block">AdminLTE v4</div>
+      </footer>
     </div>
-  </div>
-</Base>
+
+    <!-- JS (no client fetch for content assembly) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-rc3/dist/js/adminlte.min.js"></script>
+    <!-- Optional: client-only chart hydration reading the same prebuilt JSON via <script type="application/json"> inline or data-* -->
+  </body>
+</html>
