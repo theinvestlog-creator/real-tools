@@ -1,11 +1,6 @@
+---
 import fs from 'node:fs/promises';
 import path from 'node:path';
-
-// Build-time helper
-async function readJson(p: string): Promise<any> {
-  const raw = await fs.readFile(p, 'utf-8');
-  return JSON.parse(raw);
-}
 
 type IndexItem = {
   slug: string;
@@ -25,62 +20,77 @@ type MetaJson = {
   notes?: string;
 };
 
-// Enumerate dynamic paths from public/data at build time.
-// If index.json is missing/empty, return [] to avoid breaking static build.
+// Non-generic JSON reader to avoid Astro parsing generics as JSX
+async function readJson(p: string): Promise<any> {
+  const raw = await fs.readFile(p, 'utf-8');
+  return JSON.parse(raw);
+}
+
 export async function getStaticPaths() {
   const root = process.cwd();
   const idxPath = path.join(root, 'public', 'data', 'indicators', 'index.json');
 
   let items: IndexItem[] = [];
   try {
-    const idx = (await readJson(idxPath)) as { items: IndexItem[] };
+    const idx = (await readJson(idxPath)) as { items?: IndexItem[] };
     items = Array.isArray(idx?.items) ? idx.items : [];
   } catch {
-    // No index → no pages. Keep build green.
     items = [];
   }
 
-  // Preload per-slug JSON into props to avoid any client-side fetch.
-  const entries = await Promise.all(
-    items.map(async (it) => {
-      const base = path.join(root, 'public', 'data', 'indicators', it.slug);
-      const meta = (await readJson(path.join(base, 'meta.json')).catch(() => null)) as MetaJson | null;
-      const daily = (await readJson(path.join(base, 'series.json')).catch(() => null)) as SeriesJson | null;
-      const me = (await readJson(path.join(base, 'series_me.json')).catch(() => null)) as SeriesJson | null;
+  const pages: Array<{
+    params: { slug: string };
+    props: { meta: MetaJson; daily: SeriesJson | null; me: SeriesJson | null };
+  }> = [];
 
-      // Only generate a page if meta and at least one series file exist.
-      if (!meta || !(daily?.series?.length || me?.series?.length)) {
-        return null;
-      }
-      return {
-        params: { slug: it.slug },
-        props: {
-          meta,
-          daily,
-          me,
-          // keep minimal extra props to reduce page weight
-        },
-      };
-    })
-  );
+  for (const it of items) {
+    const base = path.join(root, 'public', 'data', 'indicators', it.slug);
 
-  return entries.filter(Boolean) as any[];
+    const meta = (await readJson(path.join(base, 'meta.json')).catch(() => null)) as MetaJson | null;
+    const daily = (await readJson(path.join(base, 'series.json')).catch(() => null)) as SeriesJson | null;
+    const me = (await readJson(path.join(base, 'series_me.json')).catch(() => null)) as SeriesJson | null;
+
+    const hasDaily = !!(daily && Array.isArray(daily.series) && daily.series.length);
+    const hasME = !!(me && Array.isArray(me.series) && me.series.length);
+
+    if (!meta || !(hasDaily || hasME)) {
+      continue;
+    }
+
+    pages.push({
+      params: { slug: it.slug },
+      props: { meta, daily, me },
+    });
+  }
+
+  return pages;
 }
 
-// Props supplied by getStaticPaths
+// Props provided by getStaticPaths
 const { meta, daily, me } = Astro.props as {
   meta: MetaJson;
   daily: SeriesJson | null;
   me: SeriesJson | null;
 };
 
-// Choose default series: ME (month-end) if present, else daily
-const series = (me?.series?.length ? me : daily) ?? { series: [] };
+const pageTitle: string = meta?.title ?? 'Indicator';
 
-const pageTitle = meta?.title ?? 'Indicator';
+// Choose default series: ME (month-end) if present; else daily
+const chosen = (me && me.series?.length ? me : daily) as SeriesJson | null;
+
+// Precompute safe display values for template (no complex expressions in HTML)
+const kpis = (me?.kpis ?? daily?.kpis) ?? {};
+const obsVal = (kpis as any).obs ?? (chosen?.series?.length ?? 0);
+const cagrVal = typeof (kpis as any).cagr_all === 'number' ? ((kpis as any).cagr_all as number) : null;
+const maxddVal = typeof (kpis as any).maxdd_all === 'number' ? ((kpis as any).maxdd_all as number) : null;
+
+const cagrText = cagrVal !== null ? `${(cagrVal * 100).toFixed(2)}%` : '';
+const maxddText = maxddVal !== null ? `${(maxddVal * 100).toFixed(1)}%` : '';
+
+const hasSeries = !!(chosen && Array.isArray(chosen.series) && chosen.series.length);
 ---
 
-<!-- AdminLTE canonical layout is handled by the site layout; render only content -->
+<!-- AdminLTE page header + breadcrumbs (layout wraps this) -->
 <section class="content-header">
   <div class="container-fluid">
     <div class="row mb-2">
@@ -102,16 +112,16 @@ const pageTitle = meta?.title ?? 'Indicator';
   <div class="container-fluid">
     <div class="card">
       <div class="card-body">
-        {meta?.notes && (<p class="mb-3">{meta.notes}</p>)}
+        {meta?.notes && <p class="mb-3">{meta.notes}</p>}
 
-        <!-- Minimal SSR data check -->
-        {series.series.length === 0 ? (
+        {!hasSeries && (
           <div class="alert alert-warning mb-0">
             No series data available at build time for <strong>{meta?.slug}</strong>.
           </div>
-        ) : (
-          <Fragment>
-            <!-- Server-render a tiny summary; charts (if any) can enhance on client -->
+        )}
+
+        {hasSeries && (
+          <div>
             {meta?.formula && (
               <p class="text-muted"><em>Formula:</em> {meta.formula}</p>
             )}
@@ -119,30 +129,19 @@ const pageTitle = meta?.title ?? 'Indicator';
               <p class="text-muted mb-3"><em>Tickers:</em> {meta.tickers.join(', ')}</p>
             )}
 
-            <!-- Example static summary -->
             <p class="mb-0">
-              Observations: <strong>{(me?.kpis?.obs ?? daily?.kpis?.obs) ?? series.series.length}</strong>
-              {typeof (me?.kpis?.cagr_all ?? daily?.kpis?.cagr_all) === 'number' && (
-                <span>
-                  {' '}
-                  · CAGR: <strong>{((me?.kpis?.cagr_all ?? daily?.kpis?.cagr_all) * 100).toFixed(2)}%</strong>
-                </span>
-              )}
-              {typeof (me?.kpis?.maxdd_all ?? daily?.kpis?.maxdd_all) === 'number' && (
-                <span>
-                  {' '}
-                  · Max DD: <strong>{(((me?.kpis?.maxdd_all ?? daily?.kpis?.maxdd_all)) * 100).toFixed(1)}%</strong>
-                </span>
-              )}
+              Observations: <strong>{obsVal}</strong>
+              {cagrText && <span> · CAGR: <strong>{cagrText}</strong></span>}
+              {maxddText && <span> · Max DD: <strong>{maxddText}</strong></span>}
             </p>
 
-            <!-- If you have a chart enhancer, mount it; SSR content remains useful without JS -->
             <div id="chart-container" class="mt-3">
-              <!-- Progressive enhancement only; no data fetch needed because data is already embedded via props -->
+              <!-- Progressive enhancement placeholder; client JS can hydrate using embedded props -->
             </div>
-          </Fragment>
+          </div>
         )}
       </div>
     </div>
   </div>
 </section>
+
