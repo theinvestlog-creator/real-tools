@@ -2,9 +2,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 // Build-time helper
-async function readJson<T>(p: string): Promise<T> {
+async function readJson(p: string): Promise<any> {
   const raw = await fs.readFile(p, 'utf-8');
-  return JSON.parse(raw) as T;
+  return JSON.parse(raw);
 }
 
 type IndexItem = {
@@ -33,7 +33,7 @@ export async function getStaticPaths() {
 
   let items: IndexItem[] = [];
   try {
-    const idx = await readJson<{ items: IndexItem[] }>(idxPath);
+    const idx = (await readJson(idxPath)) as { items: IndexItem[] };
     items = Array.isArray(idx?.items) ? idx.items : [];
   } catch {
     // No index → no pages. Keep build green.
@@ -44,9 +44,9 @@ export async function getStaticPaths() {
   const entries = await Promise.all(
     items.map(async (it) => {
       const base = path.join(root, 'public', 'data', 'indicators', it.slug);
-      const meta = await readJson<MetaJson>(path.join(base, 'meta.json')).catch(() => null);
-      const daily = await readJson<SeriesJson>(path.join(base, 'series.json')).catch(() => null);
-      const me = await readJson<SeriesJson>(path.join(base, 'series_me.json')).catch(() => null);
+      const meta = (await readJson(path.join(base, 'meta.json')).catch(() => null)) as MetaJson | null;
+      const daily = (await readJson(path.join(base, 'series.json')).catch(() => null)) as SeriesJson | null;
+      const me = (await readJson(path.join(base, 'series_me.json')).catch(() => null)) as SeriesJson | null;
 
       // Only generate a page if meta and at least one series file exist.
       if (!meta || !(daily?.series?.length || me?.series?.length)) {
