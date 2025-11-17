@@ -1,8 +1,7 @@
 name: Build data (nightly + manual)
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "7 2 * * *" # daily 02:07 UTC
+
 
 jobs:
   build:
